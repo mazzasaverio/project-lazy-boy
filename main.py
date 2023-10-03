@@ -9,20 +9,27 @@ from redis.asyncio import Redis
 
 
 async def main():
-    r = await Redis(host='localhost', port=6379, decode_responses=True)
+    r = await Redis(host='redis', port=6379, decode_responses=True)
     urls = []
-    if os.path.exists("urls.json"):
-        with open("urls.json", "r") as f:
+    # await r.lpop(100000000)
+    if os.path.exists("data/urls.json"):
+        with open("data/urls.json", "r") as f:
             urls = json.load(f)
-        os.rename("urls.json", "old_urls.json")
-    await r.lpush("frontier", *urls)
+        os.rename("data/urls.json", "data/old_urls.json")
+    if urls:
+        await r.lpush("frontier", *urls)
 
     while True:
         url = await r.lpop("frontier")
+        print(url)
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url)
+        except Exception as e:
+            print(e)
+            await r.rpush("frontier", url)
+            continue
         await r.lpush("visited", url)
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url)
         soup = BeautifulSoup(resp.text, 'html.parser')
 
         for link in soup.find_all('a'):
@@ -36,7 +43,7 @@ async def main():
             out = await r.lpos("visited", new_url)
             if out is None:
                 print(new_url)
-                await r.lpush("frontier", new_url)
+                await r.rpush("frontier", new_url)
 
 
 if __name__ == "__main__":
