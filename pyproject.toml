@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "project-lazy-boy"
+version = "0.1.0"
+description = ""
+authors = ["ma2za <mazzapaolo2019@gmail.com>"]
+readme = "README.md"
+packages = [{include = "project_lazy_boy"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+httpx = "^0.25.0"
+beautifulsoup4 = "^4.12.2"
+redis = "^5.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
