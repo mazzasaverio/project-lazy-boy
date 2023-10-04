@@ -27,15 +27,16 @@ async def fetch(r, career_keywords, ix):
                 result = urlparse(new_url)
                 if not all([result.scheme, result.netloc]):
                     continue
+                car_urls = await r.lpos("career_urls", new_url)
+                visited = await r.lpos("visited", new_url)
+                if visited is not None or car_urls is not None:
+                    continue
                 if any([car in new_url for car in career_keywords]):
-                    print(new_url)
                     await r.rpush("career_urls", new_url)
                     await r.lpush("visited", new_url)
                     continue
 
-                out = await r.lpos("visited", new_url)
-
-                if out is None:
+                if visited is None:
                     await r.rpush("frontier", new_url)
         except Exception as e:
             await r.rpush("frontier", url)
