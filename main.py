@@ -9,35 +9,38 @@ from bs4 import BeautifulSoup
 from redis.asyncio import Redis
 
 
-async def fetch(r, career_keywords):
-    url = await r.lpop("frontier")
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url)
-    except Exception as e:
-        await r.rpush("frontier", url)
-        return url, str(e)
-    await r.lpush("visited", url)
-    soup = BeautifulSoup(resp.text, 'html.parser')
+async def fetch(r, career_keywords, ix):
+    i = 0
+    while True:
+        i += 1
+        url = await r.lpop("frontier")
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url)
+            await r.lpush("visited", url)
+            soup = BeautifulSoup(resp.text, 'html.parser')
 
-    for link in soup.find_all('a'):
-        new_url = link.get('href')
-        if not urlparse(new_url).netloc:
-            new_url = urljoin(url, new_url)
-        result = urlparse(new_url)
-        if not all([result.scheme, result.netloc]):
-            continue
-        if any([car in new_url for car in career_keywords]):
-            print(new_url)
-            await r.rpush("career_urls", new_url)
-            continue
+            for link in soup.find_all('a'):
+                new_url = link.get('href')
+                if not urlparse(new_url).netloc:
+                    new_url = urljoin(url, new_url)
+                result = urlparse(new_url)
+                if not all([result.scheme, result.netloc]):
+                    continue
+                if any([car in new_url for car in career_keywords]):
+                    print(new_url)
+                    await r.rpush("career_urls", new_url)
+                    await r.lpush("visited", new_url)
+                    continue
 
-        out = await r.lpos("visited", new_url)
+                out = await r.lpos("visited", new_url)
 
-        if out is None:
-            await r.rpush("frontier", new_url)
+                if out is None:
+                    await r.rpush("frontier", new_url)
+        except Exception as e:
+            await r.rpush("frontier", url)
 
-    return url, "Done"
+        print(f"Response {i} from {ix} for {url}: Done")
 
 
 async def main():
@@ -45,25 +48,21 @@ async def main():
         config = yaml.load(f, yaml.Loader)
         career_keywords = config.get("career_keywords")
 
-    r = await Redis(host='localhost', port=6379, decode_responses=True)
+    r = await Redis(host='redis', port=6379, decode_responses=True)
     urls = []
     # await r.delete("frontier")
     # await r.delete("visited")
 
-    URLS = "data/temp.json"
+    URLS = "data/urls.json"
     if os.path.exists(URLS):
         with open(URLS, "r") as f:
             urls = json.load(f)
         os.rename(URLS, "data/old_urls.json")
     if urls:
         await r.lpush("frontier", *urls)
-    i = 0
-    while True:
-        tasks = [fetch(r, career_keywords) for _ in range(100)]
-        responses = await asyncio.gather(*tasks)
-        for url, response in responses:
-            i += 1
-            print(f"Response {i} from {url}: {response}")
+
+    tasks = [fetch(r, career_keywords, ix) for ix in range(100)]
+    responses = await asyncio.gather(*tasks)
 
 
 if __name__ == "__main__":
