@@ -47,8 +47,8 @@ async def main():
 
     r = await Redis(host='localhost', port=6379, decode_responses=True)
     urls = []
-    await r.lpop("frontier", 100000000)
-    await r.lpop("visited", 100000000)
+    # await r.delete("frontier")
+    # await r.delete("visited")
 
     URLS = "data/temp.json"
     if os.path.exists(URLS):
