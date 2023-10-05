@@ -84,7 +84,7 @@ async def crawler():
         config = yaml.load(f, yaml.Loader)
         career_keywords = config.get("career_keywords")
 
-    r = await Redis(host='localhost', port=6379, decode_responses=True)
+    r = await Redis(host='redis', port=6379, decode_responses=True)
     urls = []
 
     if os.path.exists(URLS):
