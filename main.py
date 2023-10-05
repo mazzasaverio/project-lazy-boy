@@ -74,7 +74,7 @@ async def crawl(r, career_keywords: list, ix: int):
             await scrape(resp, url, r, career_keywords)
         except Exception as e:
             await r.lpush("errors", url)
-            logger.error(f"Response {i} from {ix} for {url}: {e}")
+            logger.error(f"Response {i} from {ix} for {url}: {e} {type(e)}")
             continue
         logger.info(f"Response {i} from {ix} for {url}: Done")
 
