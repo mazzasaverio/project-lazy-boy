@@ -67,7 +67,7 @@ async def crawl(r, career_keywords: list, ix: int):
         i += 1
         url = await r.lpop("frontier")
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
                 resp = await client.get(url)
                 resp.raise_for_status()
             await r.lpush("visited", url)
