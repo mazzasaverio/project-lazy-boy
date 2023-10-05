@@ -1,5 +1,16 @@
 version: '3'
 services:
+  monitor:
+    build:
+      context: .
+      dockerfile: monitor.Dockerfile
+    command: poetry run python3 monitor.py
+    depends_on:
+      - redis
+    volumes:
+      - type: bind
+        source: data
+        target: /app/data
   app:
     build:
       context: .
@@ -9,6 +20,9 @@ services:
         source: data
         target: /app/data
     command: poetry run python3 main.py
+    deploy:
+      mode: replicated
+      replicas: 2
     depends_on:
       - redis
   redis:
