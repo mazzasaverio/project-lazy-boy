@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging.config
 import os.path
+import time
 
 import httpx
 from dotenv import load_dotenv
@@ -10,7 +11,7 @@ from redis.asyncio import Redis
 
 load_dotenv()
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler("data/app.log")
@@ -27,11 +28,17 @@ async def crawl(client, r, ix: int):
         resp.raise_for_status()
         await r.lpush("visited", url)
         await r.lpush("pages", f"{url}--!!--{resp.text}")
-        logger.info(f"Response from {ix} for {url}: Done")
         return 1
+    except httpx.ConnectTimeout as e:
+        await r.rpush("frontier", url)
+        return 2
+    except httpx.HTTPStatusError as e:
+        if resp.status_code in [403, 404, 500, 999, 502]:
+            return 0
+        await r.lpush("errors", url)
+        return 0
     except Exception as e:
         await r.lpush("errors", url)
-        logger.error(f"Response from {ix} for {url}: {e} {type(e)}")
         return 0
 
 
@@ -48,10 +55,13 @@ async def crawler():
     reqs = 500
     while True:
         async with httpx.AsyncClient(follow_redirects=True, http2=True,
-                                     timeout=Timeout(timeout=5.0),
+                                     timeout=Timeout(timeout=10.0),
                                      limits=Limits(max_connections=reqs, max_keepalive_connections=20)) as client:
+            start = time.time()
             results = await asyncio.gather(*[crawl(client, r, ix) for ix in range(reqs)])
-            print()
+            end = time.time()
+            logger.warning(
+                f"END: {end - start}, SUCCESS: {sum([1 for r in results if r == 1])}, TIMEOUTS: {sum([1 for r in results if r == 2])}, ERROR: {sum([1 for r in results if r == 0])}")
 
 
 if __name__ == "__main__":
