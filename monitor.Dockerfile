@@ -34,7 +34,7 @@ WORKDIR /app
 
 RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry init
 
-RUN poetry add redis
+RUN poetry add redis python-dotenv
 
 COPY . .
 

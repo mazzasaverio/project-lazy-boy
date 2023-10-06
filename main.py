@@ -4,8 +4,10 @@ import logging.config
 import os.path
 
 import httpx
+from dotenv import load_dotenv
 from redis.asyncio import Redis
 
+load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -36,7 +38,7 @@ async def crawl(r, ix: int):
 
 
 async def crawler():
-    r = await Redis(host='localhost', port=6379, decode_responses=True)
+    r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
     urls = []
 
     if os.path.exists(URLS):

@@ -1,8 +1,11 @@
 import asyncio
 import logging.config
+import os
 
+from dotenv import load_dotenv
 from redis.asyncio import Redis
 
+load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 async def monitor():
     try:
-        r = await Redis(host='redis', port=6379, decode_responses=True)
+        r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
         prev = 0
         prev_car = 0
         while True:

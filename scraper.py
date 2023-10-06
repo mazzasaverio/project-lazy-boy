@@ -1,12 +1,15 @@
 import asyncio
 import logging.config
+import os
 import re
 from urllib.parse import urlparse, urljoin, urlunparse
 
 import yaml
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 from redis.asyncio import Redis
 
+load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -68,7 +71,7 @@ async def scraper():
         config = yaml.load(f, yaml.Loader)
         career_keywords = config.get("career_keywords")
 
-    r = await Redis(host='localhost', port=6379, decode_responses=True)
+    r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
 
     tasks = [scrape(r, career_keywords) for _ in range(10)]
     await asyncio.gather(*tasks)
