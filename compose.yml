@@ -1,5 +1,17 @@
 version: '3'
 services:
+  scraper:
+    build:
+      context: .
+      dockerfile: scraper.Dockerfile
+    command: poetry run python3 scraper.py
+    depends_on:
+      - redis
+      - app
+    volumes:
+      - type: bind
+        source: data
+        target: /app/data
   monitor:
     build:
       context: .
