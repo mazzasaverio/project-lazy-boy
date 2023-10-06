@@ -6,6 +6,7 @@ import os.path
 import time
 
 import httpx
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from httpx import Limits, Timeout
 from redis.asyncio import Redis
@@ -36,7 +37,9 @@ async def crawl(client, r, ix: int):
             times.append(end_req - start_req)
             resp.raise_for_status()
             await r.lpush("visited", url)
-            await r.lpush("pages", f"{url}--!!--{resp.text}")
+
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            await r.lpush("pages", *[url + "--!!--" + s.get("href") for s in soup.find_all(href=True)])
             resps.append(1)
         except httpx.ConnectTimeout as e:
             await r.rpush("frontier", url)

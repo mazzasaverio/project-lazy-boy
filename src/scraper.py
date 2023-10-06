@@ -5,7 +5,6 @@ import re
 from urllib.parse import urlparse, urljoin, urlunparse
 
 import yaml
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from redis.asyncio import Redis
 
@@ -36,31 +35,30 @@ def dns_translation(url: str):
     return clean_url
 
 
-async def scrape(r, career_keywords: list):
+async def scrape(r, career_keywords: list, exclude_patterns):
     while True:
         try:
             txt = await r.lpop("pages")
-            url, txt = txt.split("--!!--", 1)
-            soup = BeautifulSoup(txt, 'html.parser')
-            for link in soup.find_all('a'):
-                new_url = link.get('href')
-                if not urlparse(new_url).netloc:
-                    new_url = urljoin(url, new_url)
-                result = urlparse(new_url)
-                if not all([result.scheme, result.netloc]):
-                    continue
-                clean_url = dns_translation(new_url)
-                car_urls = await r.lpos("career_urls", clean_url)
-                visited = await r.lpos("visited", clean_url)
-                if visited is not None or car_urls is not None:
-                    continue
-                if any([car in new_url for car in career_keywords]):
-                    await r.rpush("career_urls", new_url)
-                    await r.lpush("visited", new_url)
-                    continue
+            url, new_url = txt.split("--!!--", 1)
+            if not urlparse(new_url).netloc:
+                new_url = urljoin(url, new_url)
+            result = urlparse(new_url)
+            if not all([result.scheme, result.netloc]):
+                continue
+            clean_url = dns_translation(new_url)
+            if any(re.search(pattern, url) for pattern in exclude_patterns):
+                continue
+            car_urls = await r.lpos("career_urls", clean_url)
+            visited = await r.lpos("visited", clean_url)
+            if visited is not None or car_urls is not None:
+                continue
+            if any([car in new_url for car in career_keywords]):
+                await r.rpush("career_urls", new_url)
+                await r.lpush("visited", new_url)
+                continue
 
-                if visited is None:
-                    await r.rpush("frontier", new_url)
+            if visited is None:
+                await r.rpush("frontier", new_url)
 
         except Exception as e:
             logger.error(f"Extraction: {str(e)}, {type(e)}")
@@ -70,10 +68,11 @@ async def scraper():
     with open("data/config.yml", "r") as f:
         config = yaml.load(f, yaml.Loader)
         career_keywords = config.get("career_keywords")
+        exclude_patterns = config.get("career_keywords")
 
     r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
 
-    tasks = [scrape(r, career_keywords) for _ in range(10)]
+    tasks = [scrape(r, career_keywords, exclude_patterns) for _ in range(10)]
     await asyncio.gather(*tasks)
 
 

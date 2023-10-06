@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 
@@ -34,3 +35,7 @@ async def azure_openai_chat(url) -> str:
     )
 
     return result.content
+
+
+if __name__ == "__main__":
+    asyncio.run(azure_openai_chat(""))
