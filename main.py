@@ -5,6 +5,7 @@ import os.path
 
 import httpx
 from dotenv import load_dotenv
+from httpx import Limits, Timeout
 from redis.asyncio import Redis
 
 load_dotenv()
@@ -27,9 +28,11 @@ async def crawl(client, r, ix: int):
         await r.lpush("visited", url)
         await r.lpush("pages", f"{url}--!!--{resp.text}")
         logger.info(f"Response from {ix} for {url}: Done")
+        return 1
     except Exception as e:
         await r.lpush("errors", url)
         logger.error(f"Response from {ix} for {url}: {e} {type(e)}")
+        return 0
 
 
 async def crawler():
@@ -42,10 +45,13 @@ async def crawler():
         os.rename(URLS, "data/old_urls.json")
     if urls:
         await r.lpush("frontier", *urls)
-
-    async with httpx.AsyncClient(follow_redirects=True) as client:
-        while True:
-            results = await asyncio.gather(*[crawl(client, r, ix) for ix in range(100)])
+    reqs = 500
+    while True:
+        async with httpx.AsyncClient(follow_redirects=True, http2=True,
+                                     timeout=Timeout(timeout=5.0),
+                                     limits=Limits(max_connections=reqs, max_keepalive_connections=20)) as client:
+            results = await asyncio.gather(*[crawl(client, r, ix) for ix in range(reqs)])
+            print()
 
 
 if __name__ == "__main__":
