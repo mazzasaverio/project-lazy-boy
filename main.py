@@ -27,11 +27,15 @@ URLS = "data/urls.json"
 async def crawl(client, r, ix: int):
     start = time.time()
     resps = []
+    times = []
     while time.time() - start < 20:
         url = await r.lpop("frontier")
         resp = None
         try:
+            start_req = time.time()
             resp = await client.get(url)
+            end_req = time.time()
+            times.append(end_req - start_req)
             resp.raise_for_status()
             await r.lpush("visited", url)
             await r.lpush("pages", f"{url}--!!--{resp.text}")
@@ -51,6 +55,7 @@ async def crawl(client, r, ix: int):
         finally:
             if resp is not None:
                 await resp.aclose()
+    print(times)
     return resps
 
 
@@ -89,8 +94,10 @@ async def crawler():
                 f"END: {end - start}, TOTAL: {tot}, SUCCESS: {succ}, TIMEOUTS: {timo}, ERROR: {errs}")
             if timo / tot > 0.1:
                 timeout = min([timeout + 5, 40])
+                reqs = min([timeout - 50, 200])
             elif timeout < 0.05:
                 timeout = max([timeout - 5, 5])
+                reqs = max([timeout + 50, 100])
 
 
 if __name__ == "__main__":
