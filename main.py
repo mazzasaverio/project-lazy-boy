@@ -19,22 +19,17 @@ logger = logging.getLogger(__name__)
 URLS = "data/urls.json"
 
 
-async def crawl(r, ix: int):
-    i = 0
-    while True:
-        i += 1
-        url = await r.lpop("frontier")
-        try:
-            async with httpx.AsyncClient(follow_redirects=True) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
-            await r.lpush("visited", url)
-            await r.lpush("pages", f"{url}--!!--{resp.text}")
-        except Exception as e:
-            await r.lpush("errors", url)
-            logger.error(f"Response {i} from {ix} for {url}: {e} {type(e)}")
-            continue
-        logger.info(f"Response {i} from {ix} for {url}: Done")
+async def crawl(client, r, ix: int):
+    url = await r.lpop("frontier")
+    try:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        await r.lpush("visited", url)
+        await r.lpush("pages", f"{url}--!!--{resp.text}")
+        logger.info(f"Response from {ix} for {url}: Done")
+    except Exception as e:
+        await r.lpush("errors", url)
+        logger.error(f"Response from {ix} for {url}: {e} {type(e)}")
 
 
 async def crawler():
@@ -48,8 +43,9 @@ async def crawler():
     if urls:
         await r.lpush("frontier", *urls)
 
-    tasks = [crawl(r, ix) for ix in range(100)]
-    await asyncio.gather(*tasks)
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        while True:
+            results = await asyncio.gather(*[crawl(client, r, ix) for ix in range(100)])
 
 
 if __name__ == "__main__":
