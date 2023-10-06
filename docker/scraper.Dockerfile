@@ -36,5 +36,7 @@ COPY ../pyproject.toml poetry.lock README.md ./
 
 RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry install --no-root
 
+RUN poetry add torch transformers
+
 COPY .. .
 

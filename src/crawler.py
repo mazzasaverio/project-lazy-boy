@@ -39,7 +39,7 @@ async def crawl(client, r, ix: int):
             await r.lpush("visited", url)
 
             soup = BeautifulSoup(resp.text, 'html.parser')
-            await r.lpush("pages", *[url + "--!!--" + s.get("href") for s in soup.find_all(href=True)])
+            await r.lpush("pages", *list(set(url + "--!!--" + s.get("href") for s in soup.find_all(href=True))))
             resps.append(1)
         except httpx.ConnectTimeout as e:
             await r.rpush("frontier", url)

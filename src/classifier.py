@@ -1,41 +1,29 @@
-import asyncio
 import logging
-import os
 
-from langchain.chat_models import AzureChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 logger = logging.getLogger(__name__)
+model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
+tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
 
 
-async def azure_openai_chat(url) -> str:
-    llm = AzureChatOpenAI(
-        openai_api_type=os.getenv("AZURE_OPENAI_API_TYPE"),
-        openai_api_base=os.getenv("AZURE_OPENAI_API_BASE"),
-        openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-        openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        streaming=False,
-        temperature=0.0,
-    )
-    result = await llm._call_async(
-        [
-            SystemMessage(
-                content="""Generate an email in JSON format with the following criteria:
-                    Subject: [Concise subject of the Email]
-                    Main Content: [Provide the main message or content you want in the email]
-                    Only use the information in the prompt, do not insert placeholders to replace/fill.
-                    Do not add factually unverified information.
-                    Please generate the email as a JSON object with two fields: 'subject' and 'content'."""
-            ),
-            HumanMessage(
-                content=url,
-            ),
-        ]
-    )
+async def local_llm(url):
+    prompt_template = f"""
+    Classify career page urls:
+    
+    1) https://www.1mg.com/jobs: 1
+    2) 3i-infotech.com/careers/: 1
+    3) https://www.inquirer.com/opinion/commentary/saving-liberal-arts-education-america-20230604.html: 0
+    4) https://www.247.ai/career-search: 1
+    5) https://www.accenture.com/in-en/careers: 1
+    6) https://www.nytimes.com/2021/10/19/business/work-spaces-design-employees.html: 0
+    7) https://accord-global.com/careers.html: 1
+    8) http://equinoxfarmberkshires.com/contact-us/: 0
+    9) https://careers.alibaba.com: 1
+    
+    10) {url}:
+    """
 
-    return result.content
-
-
-if __name__ == "__main__":
-    asyncio.run(azure_openai_chat(""))
+    inputs = tokenizer(prompt_template, return_tensors="pt")
+    outputs = await model.agenerate(**inputs)
+    return tokenizer.batch_decode(outputs, skip_special_tokens=True)

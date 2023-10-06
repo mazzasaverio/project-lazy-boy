@@ -8,6 +8,8 @@ import yaml
 from dotenv import load_dotenv
 from redis.asyncio import Redis
 
+from src.classifier import local_llm
+
 load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
@@ -17,6 +19,8 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+domain_pattern = r".*\.(com|co\.uk|org|net|gov|edu|it|io|tech|ai|app|dev)/.*"
 
 
 def dns_translation(url: str):
@@ -35,7 +39,7 @@ def dns_translation(url: str):
     return clean_url
 
 
-async def scrape(r, career_keywords: list, exclude_patterns):
+async def scrape(r, career_keywords: list, exclude_patterns, social_network_domains):
     while True:
         try:
             txt = await r.lpop("pages")
@@ -46,16 +50,24 @@ async def scrape(r, career_keywords: list, exclude_patterns):
             if not all([result.scheme, result.netloc]):
                 continue
             clean_url = dns_translation(new_url)
-            if any(re.search(pattern, url) for pattern in exclude_patterns):
+            if any(re.search(pattern, new_url) for pattern in exclude_patterns):
                 continue
+            if any([dom in new_url for dom in social_network_domains]):
+                continue
+
+            if not re.match(domain_pattern, new_url):
+                continue
+
             car_urls = await r.lpos("career_urls", clean_url)
             visited = await r.lpos("visited", clean_url)
             if visited is not None or car_urls is not None:
                 continue
             if any([car in new_url for car in career_keywords]):
-                await r.rpush("career_urls", new_url)
-                await r.lpush("visited", new_url)
-                continue
+                is_career_url = await local_llm(new_url)
+                if int(is_career_url):
+                    await r.rpush("career_urls", new_url)
+                    await r.lpush("visited", new_url)
+                    continue
 
             if visited is None:
                 await r.rpush("frontier", new_url)
@@ -68,11 +80,12 @@ async def scraper():
     with open("data/config.yml", "r") as f:
         config = yaml.load(f, yaml.Loader)
         career_keywords = config.get("career_keywords")
-        exclude_patterns = config.get("career_keywords")
+        exclude_patterns = config.get("exclude_patterns")
+        social_network_domains = config.get("social_network_domains")
 
     r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
 
-    tasks = [scrape(r, career_keywords, exclude_patterns) for _ in range(10)]
+    tasks = [scrape(r, career_keywords, exclude_patterns, social_network_domains) for _ in range(10)]
     await asyncio.gather(*tasks)
 
 
