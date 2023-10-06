@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import json
 import logging.config
 import os.path
@@ -22,24 +23,33 @@ URLS = "data/urls.json"
 
 
 async def crawl(client, r, ix: int):
-    url = await r.lpop("frontier")
-    try:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        await r.lpush("visited", url)
-        await r.lpush("pages", f"{url}--!!--{resp.text}")
-        return 1
-    except httpx.ConnectTimeout as e:
-        await r.rpush("frontier", url)
-        return 2
-    except httpx.HTTPStatusError as e:
-        if resp.status_code in [403, 404, 500, 999, 502]:
-            return 0
-        await r.lpush("errors", url)
-        return 0
-    except Exception as e:
-        await r.lpush("errors", url)
-        return 0
+    start = time.time()
+    resps = []
+    while time.time() - start < 20:
+        url = await r.lpop("frontier")
+        resp = None
+        try:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            await r.lpush("visited", url)
+            await r.lpush("pages", f"{url}--!!--{resp.text}")
+            resps.append(1)
+        except httpx.ConnectTimeout as e:
+            await r.rpush("frontier", url)
+            resps.append(2)
+        except httpx.HTTPStatusError as e:
+            if resp.status_code in [403, 404, 500, 999, 502]:
+                resps.append(0)
+                continue
+            await r.lpush("errors", url)
+            resps.append(0)
+        except Exception as e:
+            await r.lpush("errors", url)
+            resps.append(0)
+        finally:
+            if resp is not None:
+                await resp.aclose()
+    return resps
 
 
 async def crawler():
@@ -53,15 +63,25 @@ async def crawler():
     if urls:
         await r.lpush("frontier", *urls)
     reqs = 500
+    timeout = 10
     while True:
         async with httpx.AsyncClient(follow_redirects=True, http2=True,
-                                     timeout=Timeout(timeout=10.0),
+                                     timeout=Timeout(timeout=timeout),
                                      limits=Limits(max_connections=reqs, max_keepalive_connections=20)) as client:
             start = time.time()
             results = await asyncio.gather(*[crawl(client, r, ix) for ix in range(reqs)])
             end = time.time()
+            results = list(itertools.chain.from_iterable(results))
+            succ = sum([1 for r in results if r == 1])
+            errs = sum([1 for r in results if r == 0])
+            timo = sum([1 for r in results if r == 2])
+            tot = len(results)
             logger.warning(
-                f"END: {end - start}, SUCCESS: {sum([1 for r in results if r == 1])}, TIMEOUTS: {sum([1 for r in results if r == 2])}, ERROR: {sum([1 for r in results if r == 0])}")
+                f"END: {end - start}, TOTAL: {tot}, SUCCESS: {succ}, TIMEOUTS: {timo}, ERROR: {errs}")
+            if timo / tot > 0.1:
+                timeout = min([timeout + 5, 40])
+            elif timeout < 0.05:
+                timeout = max([timeout - 5, 5])
 
 
 if __name__ == "__main__":
