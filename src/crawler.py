@@ -87,7 +87,7 @@ async def crawler():
                 reqs = min([timeout - 50, 200])
             elif timeout < 0.05:
                 timeout = max([timeout - 5, 5])
-                reqs = max([timeout + 50, 1000])
+                reqs = max([reqs + 50, 1000])
 
 
 if __name__ == "__main__":
