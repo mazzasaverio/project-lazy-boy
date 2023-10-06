@@ -5,15 +5,12 @@ services:
       - .env
     build:
       context: .
-      dockerfile: scraper.Dockerfile
-    command: poetry run python3 scraper.py
+      dockerfile: docker/scraper.Dockerfile
+    command: poetry run python3 src/scraper.py
     depends_on:
       redis:
         condition:
-          service_started
-      app:
-        condition:
-          service_started
+          service_healthy
     volumes:
       - type: bind
         source: data
@@ -23,12 +20,12 @@ services:
       - .env
     build:
       context: .
-      dockerfile: monitor.Dockerfile
-    command: poetry run python3 monitor.py
+      dockerfile: docker/monitor.Dockerfile
+    command: poetry run python3 src/monitor.py
     depends_on:
       redis:
         condition:
-          service_started
+          service_healthy
     volumes:
       - type: bind
         source: data
@@ -38,21 +35,23 @@ services:
       - .env
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     volumes:
       - type: bind
         source: data
         target: /app/data
-    command: poetry run python3 main.py
+    command: poetry run python3 src/crawler.py
     deploy:
       mode: replicated
       replicas: 1
     depends_on:
       redis:
         condition:
-          service_started
+          service_healthy
   redis:
     image: redis
+    healthcheck:
+      test: [ "CMD", "redis-cli","ping" ]
     ports:
       - "6379:6379"
     container_name: redis
