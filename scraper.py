@@ -2,12 +2,15 @@ import asyncio
 import logging.config
 import os
 import re
+import time
 from urllib.parse import urlparse, urljoin, urlunparse
 
 import yaml
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from redis.asyncio import Redis
+
+from redis import BusyLoadingError
 
 load_dotenv()
 logging.basicConfig(
@@ -72,7 +75,12 @@ async def scraper():
         career_keywords = config.get("career_keywords")
 
     r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
-
+    while True:
+        try:
+            r.ping()
+            break
+        except BusyLoadingError:
+            time.sleep(1)
     tasks = [scrape(r, career_keywords) for _ in range(10)]
     await asyncio.gather(*tasks)
 

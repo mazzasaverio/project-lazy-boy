@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from httpx import Limits, Timeout
 from redis.asyncio import Redis
 
+from redis import BusyLoadingError
+
 load_dotenv()
 logging.basicConfig(
     level=logging.WARNING,
@@ -55,6 +57,13 @@ async def crawl(client, r, ix: int):
 async def crawler():
     r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
     urls = []
+
+    while True:
+        try:
+            r.ping()
+            break
+        except BusyLoadingError:
+            time.sleep(1)
 
     if os.path.exists(URLS):
         with open(URLS, "r") as f:

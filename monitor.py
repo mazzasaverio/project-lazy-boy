@@ -1,9 +1,12 @@
 import asyncio
 import logging.config
 import os
+import time
 
 from dotenv import load_dotenv
 from redis.asyncio import Redis
+
+from redis import BusyLoadingError
 
 load_dotenv()
 logging.basicConfig(
@@ -19,6 +22,12 @@ logger = logging.getLogger(__name__)
 async def monitor():
     try:
         r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
+        while True:
+            try:
+                r.ping()
+                break
+            except BusyLoadingError:
+                time.sleep(1)
         prev = 0
         prev_car = 0
         while True:
