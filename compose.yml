@@ -22,7 +22,7 @@ services:
     command: poetry run python3 main.py
     deploy:
       mode: replicated
-      replicas: 2
+      replicas: 1
     depends_on:
       - redis
   redis:
