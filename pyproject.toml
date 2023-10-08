@@ -4,11 +4,11 @@ version = "0.1.0"
 description = ""
 authors = ["ma2za <mazzapaolo2019@gmail.com>"]
 readme = "README.md"
-packages = [{include = "project_lazy_boy"}]
+packages = [{ include = "project_lazy_boy" }]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-httpx = {extras = ["http2"], version = "^0.25.0"}
+httpx = { extras = ["http2"], version = "^0.25.0" }
 beautifulsoup4 = "^4.12.2"
 redis = "^5.0.1"
 pyyaml = "^6.0.1"
@@ -17,6 +17,9 @@ python-dotenv = "^1.0.0"
 
 [tool.poetry.group.scraper.dependencies]
 transformers = "^4.34.0"
+torch = ">=2.0.0, !=2.0.1"
+bitsandbytes = "^0.41.1"
+accelerate = "^0.23.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -36,7 +36,6 @@ COPY ../pyproject.toml poetry.lock README.md ./
 
 RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry install --no-root --with scraper
 
-RUN poetry add torch bitsandbytes accelerate
 
 COPY .. .
 
