@@ -2,6 +2,7 @@ import asyncio
 import logging.config
 import os
 import re
+import sys
 import time
 from urllib.parse import urlparse, urljoin, urlunparse
 
@@ -16,7 +17,8 @@ logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler("data/scraping.log")
+        logging.FileHandler("data/scraping.log"),
+        logging.StreamHandler(stream=sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)

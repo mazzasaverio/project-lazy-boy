@@ -1,6 +1,7 @@
 import asyncio
 import logging.config
 import os
+import sys
 
 from dotenv import load_dotenv
 from redis.asyncio import Redis
@@ -10,7 +11,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler("data/monitor.log")
+        logging.FileHandler("data/monitor.log"),
+        logging.StreamHandler(stream=sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)

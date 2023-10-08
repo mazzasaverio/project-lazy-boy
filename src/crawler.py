@@ -3,6 +3,7 @@ import itertools
 import json
 import logging.config
 import os.path
+import sys
 import time
 
 import httpx
@@ -17,6 +18,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler("data/app.log"),
+        logging.StreamHandler(stream=sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)
