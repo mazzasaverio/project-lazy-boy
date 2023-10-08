@@ -1159,6 +1159,7 @@ files = [
 ]
 
 [package.dependencies]
+accelerate = {version = ">=0.20.3", optional = true, markers = "extra == \"torch\""}
 filelock = "*"
 huggingface-hub = ">=0.16.4,<1.0"
 numpy = ">=1.17"
@@ -1168,6 +1169,7 @@ regex = "!=2019.12.17"
 requests = "*"
 safetensors = ">=0.3.1"
 tokenizers = ">=0.14,<0.15"
+torch = {version = ">=1.10,<1.12.0 || >1.12.0", optional = true, markers = "extra == \"torch\""}
 tqdm = ">=4.27"
 
 [package.extras]
@@ -1249,4 +1251,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "289af574d1cb35299448a3517635be0f02f67db6349dbd6345a8ce2cb2bdb108"
+content-hash = "af5d5d4e57664b3b7fe324fea32f67cf1b09c842fdfa98702e91e39cb0db4455"

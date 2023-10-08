@@ -15,10 +15,9 @@ python-dotenv = "^1.0.0"
 
 
 [tool.poetry.group.scraper.dependencies]
-transformers = "^4.34.0"
+transformers = {extras = ["torch"], version = "^4.34.0"}
 bitsandbytes = "^0.41.1"
 accelerate = "^0.23.0"
-torch = "^2.1.0"
 
 [build-system]
 requires = ["poetry-core"]
