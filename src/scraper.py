@@ -17,7 +17,7 @@ logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler("data/scraping.log"),
+        logging.FileHandler("logs/scraping.log"),
         logging.StreamHandler(stream=sys.stdout)
     ]
 )

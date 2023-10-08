@@ -36,5 +36,5 @@ COPY ../pyproject.toml poetry.lock README.md ./
 
 RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry install --no-root --without scraper
 
-COPY .. .
-
+COPY ../.env .
+COPY ../src ./src

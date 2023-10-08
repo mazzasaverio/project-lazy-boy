@@ -17,12 +17,12 @@ logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler("data/app.log"),
+        logging.FileHandler("logs/crawler.log"),
         logging.StreamHandler(stream=sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)
-URLS = "data/urls.json"
+URLS = "config/urls.json"
 
 
 async def crawl(client, r, ix: int):
@@ -68,7 +68,7 @@ async def crawler():
     if os.path.exists(URLS):
         with open(URLS, "r") as f:
             urls = json.load(f)
-        os.rename(URLS, "data/old_urls.json")
+        os.rename(URLS, "config/old_urls.json")
     if urls:
         await r.lpush("frontier", *urls)
     reqs = 500
@@ -86,7 +86,7 @@ async def crawler():
             timo = sum([1 for r in results if r == 2])
             tot = len(results)
             logger.warning(
-                f"END: {end - start}, TOTAL: {tot}, SUCCESS: {succ}, TIMEOUTS: {timo}, ERROR: {errs}")
+                f"END: {end - start}, TOTAL: {tot}, SUCCESS: {succ}, TIMEOUTS: {timo}, ERROR: {errs}, TIMEOUT: {timeout}, REQUESTS: {reqs}")
             if timo / max([1, tot]) > 0.1:
                 timeout = min([timeout + 2, 40])
                 reqs = min([reqs - 10, 200])

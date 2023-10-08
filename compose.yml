@@ -13,6 +13,9 @@ services:
           service_healthy
     volumes:
       - type: bind
+        source: logs
+        target: /app/logs
+      - type: bind
         source: data
         target: /app/data
   monitor:
@@ -28,8 +31,8 @@ services:
           service_healthy
     volumes:
       - type: bind
-        source: data
-        target: /app/data
+        source: logs
+        target: /app/logs
   app:
     env_file:
       - .env
@@ -38,8 +41,11 @@ services:
       dockerfile: docker/Dockerfile
     volumes:
       - type: bind
-        source: data
-        target: /app/data
+        source: logs
+        target: /app/logs
+      - type: bind
+        source: config
+        target: /app/config
     command: poetry run python3 src/crawler.py
     deploy:
       mode: replicated
