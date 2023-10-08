@@ -89,10 +89,10 @@ async def crawler():
                 f"END: {end - start}, TOTAL: {tot}, SUCCESS: {succ}, TIMEOUTS: {timo}, ERROR: {errs}, TIMEOUT: {timeout}, REQUESTS: {reqs}")
             if timo / max([1, tot]) > 0.1:
                 timeout = min([timeout + 2, 40])
-                reqs = min([reqs - 10, 200])
+                reqs = max([reqs - 10, 200])
             elif timo / max([1, tot]) < 0.05:
                 timeout = max([timeout - 2, 5])
-                reqs = max([reqs + 10, 1000])
+                reqs = min([reqs + 10, 1000])
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import logging
 import os
 
+from dotenv import load_dotenv
 from torch import bfloat16
 from transformers import (
     AutoConfig,
@@ -9,7 +10,10 @@ from transformers import (
 from transformers import AutoModelForSeq2SeqLM
 
 logger = logging.getLogger(__name__)
-MODEL_ID = "google/flan-t5-base"
+
+load_dotenv()
+
+MODEL_ID = os.getenv("MODEL_ID")
 HF_CACHE = "../data"
 
 model_config = AutoConfig.from_pretrained(
