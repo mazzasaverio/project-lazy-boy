@@ -6,7 +6,7 @@ authors = ["ma2za <mazzapaolo2019@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.9, <3.13"
 httpx = { extras = ["http2"], version = "^0.25.0" }
 beautifulsoup4 = "^4.12.2"
 redis = "^5.0.1"
@@ -19,6 +19,7 @@ bitsandbytes = "^0.41.1"
 accelerate = "^0.23.0"
 torch = ">=2.0.0, !=2.0.1, !=2.1.0"
 transformers = "4.30.0"
+scipy = "^1.11.3"
 
 [build-system]
 requires = ["poetry-core"]
