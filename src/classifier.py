@@ -2,22 +2,15 @@ import logging
 import os
 
 from torch import bfloat16
-from transformers import AutoModelForSeq2SeqLM
 from transformers import (
-    BitsAndBytesConfig,
     AutoConfig,
     AutoTokenizer,
 )
+from transformers import AutoModelForSeq2SeqLM
 
 logger = logging.getLogger(__name__)
 MODEL_ID = "google/flan-t5-base"
-HF_CACHE = "./data"
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_compute_dtype=bfloat16,
-)
+HF_CACHE = "../data"
 
 model_config = AutoConfig.from_pretrained(
     MODEL_ID, use_auth_token=os.getenv("HF_TOKEN"), cache_dir=HF_CACHE
@@ -26,9 +19,8 @@ model_config = AutoConfig.from_pretrained(
 model = AutoModelForSeq2SeqLM.from_pretrained(
     MODEL_ID,
     config=model_config,
-    quantization_config=bnb_config,
-    device_map="auto",
     cache_dir=HF_CACHE,
+    torch_dtype=bfloat16
 )
 
 tokenizer = AutoTokenizer.from_pretrained(
