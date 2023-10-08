@@ -23,6 +23,7 @@ career_keywords:
   - employ
 exclude_patterns:
   - \.pdf$
+  - \.ico$
   - \.jpg$
   - \.png$
   - \.gif$
@@ -116,6 +117,7 @@ exclude_patterns:
   - \.gitmodules$
   - \.travis.yml$
 social_network_domains:
+  - googleapis.com
   - facebook.com
   - twitter.com
   - instagram.com

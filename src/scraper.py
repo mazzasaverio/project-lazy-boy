@@ -2,6 +2,7 @@ import asyncio
 import logging.config
 import os
 import re
+import time
 from urllib.parse import urlparse, urljoin, urlunparse
 
 import yaml
@@ -12,7 +13,7 @@ from src.classifier import local_llm
 
 load_dotenv()
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler("data/scraping.log")
@@ -21,6 +22,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 domain_pattern = r".*\.(com|co\.uk|org|net|gov|edu|it|io|tech|ai|app|dev)/.*"
+
+
+def partition(pred, iterable):
+    trues = []
+    falses = []
+    for item in iterable:
+        if pred(item):
+            trues.append(item)
+        else:
+            falses.append(item)
+    return trues, falses
 
 
 def dns_translation(url: str):
@@ -40,40 +52,34 @@ def dns_translation(url: str):
 
 
 async def scrape(r, career_keywords: list, exclude_patterns, social_network_domains):
-    while True:
+    pages = await r.lpop("pages", 10000)
+    urls = [p.split("--!!--", 1) for p in pages]
+    urls = [urljoin(url, new_url) if not urlparse(new_url).netloc else new_url for url, new_url in urls]
+    urls = [dns_translation(u) for u in urls if all([urlparse(u).scheme, urlparse(u).netloc])]
+    urls = [u for u in urls if not any(re.search(pattern, u) for pattern in exclude_patterns)]
+    urls = [u for u in urls if not any([dom in u for dom in social_network_domains])]
+    urls = list(set(u for u in urls if re.match(domain_pattern, u)))
+    for clean_url in urls:
+        car_urls = await r.lpos("career_urls", clean_url)
+        visited = await r.lpos("visited", clean_url)
+        if visited is not None or car_urls is not None:
+            urls.remove(clean_url)
+    possible_career_urls, new_frontier = partition(lambda x: any([car in x for car in career_keywords]), urls)
+    llm_judge = local_llm(possible_career_urls)
+    new_career_urls = []
+    for is_career_url, clean_url in zip(llm_judge, possible_career_urls):
         try:
-            txt = await r.lpop("pages")
-            url, new_url = txt.split("--!!--", 1)
-            if not urlparse(new_url).netloc:
-                new_url = urljoin(url, new_url)
-            result = urlparse(new_url)
-            if not all([result.scheme, result.netloc]):
-                continue
-            clean_url = dns_translation(new_url)
-            if any(re.search(pattern, new_url) for pattern in exclude_patterns):
-                continue
-            if any([dom in new_url for dom in social_network_domains]):
-                continue
+            if int(is_career_url):
+                new_career_urls.append(clean_url)
+            else:
+                new_frontier.append(clean_url)
+        except Exception as ex:
+            new_frontier.append(clean_url)
+    await r.rpush("visited", *new_career_urls)
+    await r.rpush("career_urls", *new_career_urls)
+    await r.rpush("frontier", *new_frontier)
 
-            if not re.match(domain_pattern, new_url):
-                continue
-
-            car_urls = await r.lpos("career_urls", clean_url)
-            visited = await r.lpos("visited", clean_url)
-            if visited is not None or car_urls is not None:
-                continue
-            if any([car in new_url for car in career_keywords]):
-                is_career_url = await local_llm(new_url)
-                if int(is_career_url):
-                    await r.rpush("career_urls", new_url)
-                    await r.lpush("visited", new_url)
-                    continue
-
-            if visited is None:
-                await r.rpush("frontier", new_url)
-
-        except Exception as e:
-            logger.error(f"Extraction: {str(e)}, {type(e)}")
+    return len(pages), len(new_career_urls)
 
 
 async def scraper():
@@ -84,9 +90,19 @@ async def scraper():
         social_network_domains = config.get("social_network_domains")
 
     r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
-
-    tasks = [scrape(r, career_keywords, exclude_patterns, social_network_domains) for _ in range(10)]
-    await asyncio.gather(*tasks)
+    while True:
+        start = time.time()
+        tot = 0
+        tot_car = 0
+        while time.time() - start < 60:
+            try:
+                filtered, new_career_urls = await scrape(r, career_keywords, exclude_patterns, social_network_domains)
+                tot += filtered
+                tot_car += new_career_urls
+            except Exception as e:
+                time.sleep(30)
+        logger.warning(
+            f"END: {time.time() - start}, TOTAL: {tot}, NEW CAREER URLS: {tot_car}")
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler("data/app.log")
+        logging.FileHandler("data/app.log"),
     ]
 )
 logger = logging.getLogger(__name__)
@@ -86,11 +86,11 @@ async def crawler():
             logger.warning(
                 f"END: {end - start}, TOTAL: {tot}, SUCCESS: {succ}, TIMEOUTS: {timo}, ERROR: {errs}")
             if timo / max([1, tot]) > 0.1:
-                timeout = min([timeout + 5, 40])
-                reqs = min([reqs - 50, 200])
+                timeout = min([timeout + 2, 40])
+                reqs = min([reqs - 10, 200])
             elif timo / max([1, tot]) < 0.05:
-                timeout = max([timeout - 5, 5])
-                reqs = max([reqs + 50, 1000])
+                timeout = max([timeout - 2, 5])
+                reqs = max([reqs + 10, 1000])
 
 
 if __name__ == "__main__":

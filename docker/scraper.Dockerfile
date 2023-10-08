@@ -34,9 +34,9 @@ WORKDIR /app
 
 COPY ../pyproject.toml poetry.lock README.md ./
 
-RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry install --no-root
+RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry install --no-root --with scraper
 
-RUN poetry add torch transformers
+RUN poetry add torch
 
 COPY .. .
 
