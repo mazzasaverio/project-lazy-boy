@@ -18,11 +18,11 @@ async def main():
 
     try:
         while len(frontier) < 200000:
-            pages = await r.lpop("frontier", 5000)
+            pages = await r.rpop("frontier", 5000)
             frontier.extend(pages)
     except Exception as ex:
         pass
-    with open("dataset.json", "w") as f:
+    with open("dataset2.json", "w") as f:
         json.dump({"career_urls": career_urls, "frontier": frontier}, f)
 
 
