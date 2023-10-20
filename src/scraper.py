@@ -121,6 +121,7 @@ async def scrape(r, career_keywords: list, exclude_patterns, social_network_doma
         return len(pages), 0
     possible_career_urls.extend(backlog)
     backlog = []
+    # TODO Azure has not provided the response due to a content filter being triggered
     messages = [
         SystemMessage(
             content="""You are a classifier of career page urls. I will give you a list of urls and you must 
