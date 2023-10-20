@@ -1,12 +1,11 @@
 import asyncio
 import json
-import os
 
 from redis.asyncio import Redis
 
 
 async def main():
-    r = await Redis(host=os.getenv("REDIS_HOST"), port=6379, decode_responses=True)
+    r = await Redis(host="localhost", port=6379, decode_responses=True)
     career_urls = []
     frontier = []
 
