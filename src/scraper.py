@@ -1,16 +1,21 @@
 import asyncio
+import json
 import logging.config
 import os
 import re
 import sys
 import time
+from typing import List
 from urllib.parse import urlparse, urljoin, urlunparse
 
 import yaml
 from dotenv import load_dotenv
+from langchain.chat_models import AzureChatOpenAI
+from langchain.schema import BaseMessage, SystemMessage, HumanMessage
 from redis.asyncio import Redis
+from sqlalchemy.exc import InvalidRequestError
 
-from src.classifier import local_llm
+# from src.classifier import local_llm
 
 load_dotenv()
 logging.basicConfig(
@@ -18,12 +23,36 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler("logs/scraping.log"),
-        logging.StreamHandler(stream=sys.stdout)
-    ]
+        logging.StreamHandler(stream=sys.stdout),
+    ],
 )
 logger = logging.getLogger(__name__)
 
 domain_pattern = r".*\.(com|co\.uk|org|net|gov|edu|it|io|tech|ai|app|dev)/.*"
+llm = AzureChatOpenAI(
+    openai_api_type=os.getenv("AZURE_OPENAI_API_TYPE"),
+    openai_api_base=os.getenv("AZURE_OPENAI_API_BASE"),
+    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    streaming=False,
+    temperature=0.0,
+)
+
+
+def azure_openai_chat(
+        messages: List[BaseMessage], temperature: float = 0.0
+) -> str:
+    try:
+        result = llm(messages)
+        text = result.content
+    except InvalidRequestError as ex:
+        text = messages[-1].content
+        logger.error(ex)
+    except Exception as ex:
+        text = messages[-1].content
+        logger.error(ex)
+    return text
 
 
 def partition(pred, iterable):
@@ -40,25 +69,38 @@ def partition(pred, iterable):
 def dns_translation(url: str):
     parsed_url = urlparse(url)
 
-    clean_url = urlunparse((
-        parsed_url.scheme,
-        parsed_url.netloc,
-        parsed_url.path,
-        parsed_url.params,
-        '',
-        parsed_url.fragment
-    ))
+    clean_url = urlunparse(
+        (
+            parsed_url.scheme,
+            parsed_url.netloc,
+            parsed_url.path,
+            parsed_url.params,
+            "",
+            parsed_url.fragment,
+        )
+    )
 
-    clean_url = re.sub(r'/$', '', clean_url)
+    clean_url = re.sub(r"/$", "", clean_url)
     return clean_url
 
 
 async def scrape(r, career_keywords: list, exclude_patterns, social_network_domains):
-    pages = await r.lpop("pages", 10000)
+    pages = await r.lpop("pages", 5000)
     urls = [p.split("--!!--", 1) for p in pages]
-    urls = [urljoin(url, new_url) if not urlparse(new_url).netloc else new_url for url, new_url in urls]
-    urls = [dns_translation(u) for u in urls if all([urlparse(u).scheme, urlparse(u).netloc])]
-    urls = [u for u in urls if not any(re.search(pattern, u) for pattern in exclude_patterns)]
+    urls = [
+        urljoin(url, new_url) if not urlparse(new_url).netloc else new_url
+        for url, new_url in urls
+    ]
+    urls = [
+        dns_translation(u)
+        for u in urls
+        if all([urlparse(u).scheme, urlparse(u).netloc])
+    ]
+    urls = [
+        u
+        for u in urls
+        if not any(re.search(pattern, u) for pattern in exclude_patterns)
+    ]
     urls = [u for u in urls if not any([dom in u for dom in social_network_domains])]
     urls = list(set(u for u in urls if re.match(domain_pattern, u)))
     for clean_url in urls:
@@ -66,12 +108,35 @@ async def scrape(r, career_keywords: list, exclude_patterns, social_network_doma
         visited = await r.lpos("visited", clean_url)
         if visited is not None or car_urls is not None:
             urls.remove(clean_url)
-    possible_career_urls, new_frontier = partition(lambda x: any([car in x for car in career_keywords]), urls)
-    llm_judge = local_llm(possible_career_urls)
+    possible_career_urls, new_frontier = partition(
+        lambda x: any([car in x for car in career_keywords]), urls
+    )
+
+    messages = [
+        SystemMessage(
+            content="""You are a classifier of career page urls. I will give you a list of urls and you must 
+            return a valid python dictionary where the keys are the exact urls I gave you and you assign 1 if it 
+            is a url to a career/job page of a company 0 otherwhise. These are some examples:
+        
+        1) https://www.1mg.com/jobs: 1
+        2) http://iannonedesign.com/custom-woodwork: 0
+        3) https://www.inquirer.com/opinion/commentary/saving-liberal-arts-education-america-20230604.html: 0
+        4) https://www.accenture.com/in-en/careers: 1
+        5) https://www.nytimes.com/2021/10/19/business/work-spaces-design-employees.html: 0
+        6) https://accord-global.com/careers.html: 1
+        7) http://equinoxfarmberkshires.com/contact-us/: 0
+        8) http://rsga4u.com/apply.html: 1
+        9) http://heywoodfinance.co.uk/intermediaries/working-with-us.php: 1"""
+        ),
+        HumanMessage(content=", ".join(possible_career_urls)),
+    ]
+
+    llm_judge = azure_openai_chat(messages)
+    urls_results = json.loads(llm_judge)
     new_career_urls = []
-    for is_career_url, clean_url in zip(llm_judge, possible_career_urls):
+    for clean_url, is_career_url in urls_results.items():
         try:
-            if int(is_career_url):
+            if is_career_url:
                 new_career_urls.append(clean_url)
             else:
                 new_frontier.append(clean_url)
@@ -98,13 +163,16 @@ async def scraper():
         tot_car = 0
         while time.time() - start < 60:
             try:
-                filtered, new_career_urls = await scrape(r, career_keywords, exclude_patterns, social_network_domains)
+                filtered, new_career_urls = await scrape(
+                    r, career_keywords, exclude_patterns, social_network_domains
+                )
                 tot += filtered
                 tot_car += new_career_urls
             except Exception as e:
                 time.sleep(30)
         logger.warning(
-            f"END: {time.time() - start}, TOTAL: {tot}, NEW CAREER URLS: {tot_car}")
+            f"END: {time.time() - start}, TOTAL: {tot}, NEW CAREER URLS: {tot_car}"
+        )
 
 
 if __name__ == "__main__":

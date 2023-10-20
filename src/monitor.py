@@ -12,8 +12,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler("logs/monitor.log"),
-        logging.StreamHandler(stream=sys.stdout)
-    ]
+        logging.StreamHandler(stream=sys.stdout),
+    ],
 )
 logger = logging.getLogger(__name__)
 
