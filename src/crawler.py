@@ -50,6 +50,9 @@ async def crawl(client, r, ix: int):
                 ),
             )
             resps.append(1)
+        except asyncio.exceptions.CancelledError as e:
+            await r.rpush("frontier", url)
+            resps.append(2)
         except httpx.ConnectTimeout as e:
             await r.rpush("frontier", url)
             resps.append(2)
