@@ -18,8 +18,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler("logs/crawler.log"),
-        logging.StreamHandler(stream=sys.stdout)
-    ]
+        logging.StreamHandler(stream=sys.stdout),
+    ],
 )
 logger = logging.getLogger(__name__)
 URLS = "config/urls.json"
@@ -40,8 +40,15 @@ async def crawl(client, r, ix: int):
             resp.raise_for_status()
             await r.lpush("visited", url)
 
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            await r.lpush("pages", *list(set(url + "--!!--" + s.get("href") for s in soup.find_all(href=True))))
+            soup = BeautifulSoup(resp.text, "html.parser")
+            await r.lpush(
+                "pages",
+                *list(
+                    set(
+                        url + "--!!--" + s.get("href") for s in soup.find_all(href=True)
+                    )
+                ),
+            )
             resps.append(1)
         except httpx.ConnectTimeout as e:
             await r.rpush("frontier", url)
@@ -74,11 +81,16 @@ async def crawler():
     reqs = 500
     timeout = 10
     while True:
-        async with httpx.AsyncClient(follow_redirects=True, http2=True,
-                                     timeout=Timeout(timeout=timeout),
-                                     limits=Limits(max_connections=reqs, max_keepalive_connections=20)) as client:
+        async with httpx.AsyncClient(
+                follow_redirects=True,
+                http2=True,
+                timeout=Timeout(timeout=timeout),
+                limits=Limits(max_connections=reqs, max_keepalive_connections=20),
+        ) as client:
             start = time.time()
-            results = await asyncio.gather(*[crawl(client, r, ix) for ix in range(reqs)])
+            results = await asyncio.gather(
+                *[crawl(client, r, ix) for ix in range(reqs)]
+            )
             end = time.time()
             results = list(itertools.chain.from_iterable(results))
             succ = sum([1 for r in results if r == 1])
@@ -86,7 +98,8 @@ async def crawler():
             timo = sum([1 for r in results if r == 2])
             tot = len(results)
             logger.warning(
-                f"END: {end - start}, TOTAL: {tot}, SUCCESS: {succ}, TIMEOUTS: {timo}, ERROR: {errs}, TIMEOUT: {timeout}, REQUESTS: {reqs}")
+                f"END: {end - start}, TOTAL: {tot}, SUCCESS: {succ}, TIMEOUTS: {timo}, ERROR: {errs}, TIMEOUT: {timeout}, REQUESTS: {reqs}"
+            )
             if timo / max([1, tot]) > 0.1:
                 timeout = min([timeout + 2, 40])
                 reqs = max([reqs - 10, 200])
@@ -96,4 +109,7 @@ async def crawler():
 
 
 if __name__ == "__main__":
-    asyncio.run(crawler())
+    try:
+        asyncio.run(crawler())
+    except Exception as ex:
+        logger.error(ex)

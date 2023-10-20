@@ -176,4 +176,7 @@ async def scraper():
 
 
 if __name__ == "__main__":
-    asyncio.run(scraper())
+    try:
+        asyncio.run(scraper())
+    except Exception as ex:
+        logger.error(ex)
