@@ -28,6 +28,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+backlog = []
+
 domain_pattern = r".*\.(com|co\.uk|org|net|gov|edu|it|io|tech|ai|app|dev)/.*"
 llm = AzureChatOpenAI(
     openai_api_type=os.getenv("AZURE_OPENAI_API_TYPE"),
@@ -85,6 +87,7 @@ def dns_translation(url: str):
 
 
 async def scrape(r, career_keywords: list, exclude_patterns, social_network_domains):
+    global backlog
     pages = await r.lpop("pages", 5000)
     urls = [p.split("--!!--", 1) for p in pages]
     urls = [
@@ -112,6 +115,12 @@ async def scrape(r, career_keywords: list, exclude_patterns, social_network_doma
         lambda x: any([car in x for car in career_keywords]), urls
     )
 
+    if len(possible_career_urls) + len(backlog) < 50:
+        await r.rpush("frontier", *new_frontier)
+        backlog.extend(possible_career_urls)
+        return len(pages), 0
+    possible_career_urls.extend(backlog)
+    backlog = []
     messages = [
         SystemMessage(
             content="""You are a classifier of career page urls. I will give you a list of urls and you must 
