@@ -60,50 +60,55 @@ def dns_translation(url: str):
 async def scrape(r, career_keywords: list, exclude_patterns, social_network_domains):
     global backlog
     pages = await r.lpop("pages", 1000)
-    urls = [p.split("--!!--", 1) for p in pages]
-    urls = [
-        urljoin(url, new_url) if not urlparse(new_url).netloc else new_url
-        for url, new_url in urls
-    ]
-    urls = [
-        dns_translation(u)
-        for u in urls
-        if all([urlparse(u).scheme, urlparse(u).netloc])
-    ]
-    urls = [
-        u
-        for u in urls
-        if not any(re.search(pattern, u) for pattern in exclude_patterns)
-    ]
-    urls = [u for u in urls if not any([dom in u for dom in social_network_domains])]
-    urls = list(set(u for u in urls if re.match(domain_pattern, u)))
-    for clean_url in urls:
-        visited = await r.lpos("visited", clean_url)
-        if visited is not None:
-            urls.remove(clean_url)
-    possible_career_urls, new_frontier = partition(
-        lambda x: any([car in x for car in career_keywords]), urls
-    )
+    if pages is None:
+        possible_career_urls = []
+        new_frontier = []
+    else:
+        urls = [p.split("--!!--", 1) for p in pages]
+        urls = [
+            urljoin(url, new_url) if not urlparse(new_url).netloc else new_url
+            for url, new_url in urls
+        ]
+        urls = [
+            dns_translation(u)
+            for u in urls
+            if all([urlparse(u).scheme, urlparse(u).netloc])
+        ]
+        urls = [
+            u
+            for u in urls
+            if not any(re.search(pattern, u) for pattern in exclude_patterns)
+        ]
+        urls = [u for u in urls if not any([dom in u for dom in social_network_domains])]
+        urls = list(set(u for u in urls if re.match(domain_pattern, u)))
+        for clean_url in urls:
+            visited = await r.lpos("visited", clean_url)
+            if visited is not None:
+                urls.remove(clean_url)
+        possible_career_urls, new_frontier = partition(
+            lambda x: any([car in x for car in career_keywords]), urls
+        )
 
-    if len(possible_career_urls) + len(backlog) < 20:
-        await r.rpush("frontier", *new_frontier)
-        backlog.extend(possible_career_urls)
-        return len(pages), 0
+        if len(possible_career_urls) + len(backlog) < 20:
+            await r.rpush("frontier", *new_frontier)
+            backlog.extend(possible_career_urls)
+            return len(pages), 0
     possible_career_urls.extend(backlog)
     backlog = []
+    if len(possible_career_urls) == 0:
+        return 0, 0
     results = local_llm(possible_career_urls)
     new_career_urls = []
     for clean_url, is_career_url in zip(possible_career_urls, results):
-        try:
-            if is_career_url:
-                new_career_urls.append(clean_url)
-            else:
-                new_frontier.append(clean_url)
-        except Exception as ex:
+        if is_career_url:
+            new_career_urls.append(clean_url)
+        else:
             new_frontier.append(clean_url)
-    await r.rpush("visited", *new_career_urls)
-    await r.rpush("career_urls", *new_career_urls)
-    await r.rpush("frontier", *new_frontier)
+    if len(new_career_urls):
+        await r.rpush("visited", *new_career_urls)
+        await r.rpush("career_urls", *new_career_urls)
+    if len(new_frontier):
+        await r.rpush("frontier", *new_frontier)
 
     return len(pages), len(new_career_urls)
 
@@ -125,11 +130,12 @@ async def scraper():
                 filtered, new_career_urls = await scrape(
                     r, career_keywords, exclude_patterns, social_network_domains
                 )
+                if filtered == 0:
+                    time.sleep(30)
                 tot += filtered
                 tot_car += new_career_urls
             except Exception as e:
                 logger.error(e)
-                time.sleep(30)
         logger.warning(
             f"END: {time.time() - start}, TOTAL: {tot}, NEW CAREER URLS: {tot_car}"
         )

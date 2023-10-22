@@ -24,14 +24,18 @@ async def monitor():
 
         prev = 0
         prev_car = 0
+        prev_job = 0
         while True:
             await asyncio.sleep(60)
-            result = await r.llen("visited")
-            logger.info(f"VISITED URLS: {result - prev}")
-            prev = result
+            result_visit = await r.llen("visited")
+            result_job = await r.llen("job_page")
             result = await r.llen("career_urls")
-            logger.info(f"NEW CAREER URLS: {result - prev_car}")
+            logger.info(
+                f"VISITED: {result_visit - prev}, CAREER URLS: {result - prev_car}, JOB PAGES: {result_job - prev_job}")
+
+            prev = result_visit
             prev_car = result
+            prev_job = result_job
     except Exception as e:
         logger.error(e)
 

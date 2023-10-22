@@ -20,6 +20,12 @@ openai = "^0.28.1"
 torch = { version = "2.1.0+cpu", source = "torch" }
 transformers = {extras = ["torch"], version = "^4.34.1"}
 
+
+[tool.poetry.group.career-scraping.dependencies]
+trafilatura = "^1.6.2"
+langchain = "^0.0.320"
+openai = "^0.28.1"
+
 [[tool.poetry.source]]
 name = "torch"
 url = "https://download.pytorch.org/whl/"

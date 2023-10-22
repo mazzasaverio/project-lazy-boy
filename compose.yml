@@ -1,5 +1,23 @@
 version: '3'
 services:
+  career-scraper:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: docker/career_scraper.Dockerfile
+    command: poetry run python3 src/career_scraper.py
+    depends_on:
+      redis:
+        condition:
+          service_healthy
+    volumes:
+      - type: bind
+        source: logs
+        target: /app/logs
+      - type: bind
+        source: data
+        target: /app/data
   scraper:
     env_file:
       - .env
