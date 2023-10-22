@@ -3,7 +3,6 @@ import os
 
 import torch
 from dotenv import load_dotenv
-from memory_profiler import profile
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification
 
 logger = logging.getLogger(__name__)
@@ -14,7 +13,6 @@ MODEL_ID = os.getenv("MODEL_ID")
 HF_CACHE = "../data"
 
 
-@profile()
 def load_model():
     model_config = AutoConfig.from_pretrained(
         MODEL_ID, use_auth_token=os.getenv("HF_TOKEN"), cache_dir=HF_CACHE
@@ -35,7 +33,6 @@ def load_model():
     return model, tokenizer
 
 
-@profile
 def local_llm(urls):
     model.eval()
     inputs = tokenizer.batch_encode_plus(
