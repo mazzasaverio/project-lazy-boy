@@ -16,7 +16,11 @@ model_config = AutoConfig.from_pretrained(
 )
 
 model = DistilBertForSequenceClassification.from_pretrained(
-    MODEL_ID, config=model_config, cache_dir=HF_CACHE, use_safetensors=False, low_cpu_mem_usage=True
+    MODEL_ID,
+    config=model_config,
+    cache_dir=HF_CACHE,
+    use_safetensors=False,
+    low_cpu_mem_usage=True,
 )
 
 tokenizer = AutoTokenizer.from_pretrained(
@@ -28,7 +32,9 @@ model.eval()
 
 
 def local_llm(urls):
-    inputs = tokenizer.batch_encode_plus(urls, return_tensors="pt", padding=True, truncation=True)
+    inputs = tokenizer.batch_encode_plus(
+        urls, return_tensors="pt", padding=True, truncation=True
+    )
     outputs = model(**inputs)
     return outputs[0].argmax(dim=1).tolist()
 

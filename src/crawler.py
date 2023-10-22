@@ -85,10 +85,10 @@ async def crawler():
     timeout = 10
     while True:
         async with httpx.AsyncClient(
-                follow_redirects=True,
-                http2=True,
-                timeout=Timeout(timeout=timeout),
-                limits=Limits(max_connections=reqs, max_keepalive_connections=20),
+            follow_redirects=True,
+            http2=True,
+            timeout=Timeout(timeout=timeout),
+            limits=Limits(max_connections=reqs, max_keepalive_connections=20),
         ) as client:
             start = time.time()
             results = await asyncio.gather(

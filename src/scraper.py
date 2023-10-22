@@ -43,9 +43,7 @@ llm = AzureChatOpenAI(
 )
 
 
-def azure_openai_chat(
-        messages: List[BaseMessage], temperature: float = 0.0
-) -> str:
+def azure_openai_chat(messages: List[BaseMessage], temperature: float = 0.0) -> str:
     try:
         result = llm(messages)
         text = result.content
@@ -89,7 +87,7 @@ def dns_translation(url: str):
 
 async def scrape(r, career_keywords: list, exclude_patterns, social_network_domains):
     global backlog
-    pages = await r.lpop("pages", 2000)
+    pages = await r.lpop("pages", 1000)
     urls = [p.split("--!!--", 1) for p in pages]
     urls = [
         urljoin(url, new_url) if not urlparse(new_url).netloc else new_url
@@ -115,7 +113,7 @@ async def scrape(r, career_keywords: list, exclude_patterns, social_network_doma
         lambda x: any([car in x for car in career_keywords]), urls
     )
 
-    if len(possible_career_urls) + len(backlog) < 30:
+    if len(possible_career_urls) + len(backlog) < 20:
         await r.rpush("frontier", *new_frontier)
         backlog.extend(possible_career_urls)
         return len(pages), 0
