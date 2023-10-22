@@ -1,8 +1,9 @@
 import logging
 import os
 
+import torch
 from dotenv import load_dotenv
-from transformers import AutoConfig, AutoTokenizer, DistilBertForSequenceClassification
+from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ model_config = AutoConfig.from_pretrained(
     MODEL_ID, use_auth_token=os.getenv("HF_TOKEN"), cache_dir=HF_CACHE
 )
 
-model = DistilBertForSequenceClassification.from_pretrained(
+model = AutoModelForSequenceClassification.from_pretrained(
     MODEL_ID,
     config=model_config,
     cache_dir=HF_CACHE,
@@ -35,7 +36,8 @@ def local_llm(urls):
     inputs = tokenizer.batch_encode_plus(
         urls, return_tensors="pt", padding=True, truncation=True
     )
-    outputs = model(**inputs)
+    with torch.no_grad():
+        outputs = model(**inputs)
     return outputs[0].argmax(dim=1).tolist()
 
 
