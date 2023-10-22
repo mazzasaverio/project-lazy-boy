@@ -34,7 +34,7 @@ WORKDIR /app
 
 COPY ../pyproject.toml poetry.lock README.md ./
 
-RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry install --no-root --with scraper
+RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry install --no-root --with career-scraping
 
 COPY ../.env .
 COPY ../src ./src
