@@ -4,19 +4,13 @@ import os
 import re
 import sys
 import time
-from typing import List
 from urllib.parse import urlparse, urljoin, urlunparse
 
 import yaml
 from dotenv import load_dotenv
-from langchain.chat_models import AzureChatOpenAI
-from langchain.schema import BaseMessage
 from redis.asyncio import Redis
-from sqlalchemy.exc import InvalidRequestError
 
 from src.classifier import local_llm
-
-# from src.classifier import local_llm
 
 load_dotenv()
 logging.basicConfig(
@@ -32,28 +26,6 @@ logger = logging.getLogger(__name__)
 backlog = []
 
 domain_pattern = r".*\.(com|co\.uk|org|net|gov|edu|it|io|tech|ai|app|dev)/.*"
-llm = AzureChatOpenAI(
-    openai_api_type=os.getenv("AZURE_OPENAI_API_TYPE"),
-    openai_api_base=os.getenv("AZURE_OPENAI_API_BASE"),
-    openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-    openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    streaming=False,
-    temperature=0.0,
-)
-
-
-def azure_openai_chat(messages: List[BaseMessage], temperature: float = 0.0) -> str:
-    try:
-        result = llm(messages)
-        text = result.content
-    except InvalidRequestError as ex:
-        text = messages[-1].content
-        logger.error(ex)
-    except Exception as ex:
-        text = messages[-1].content
-        logger.error(ex)
-    return text
 
 
 def partition(pred, iterable):
@@ -156,6 +128,7 @@ async def scraper():
                 tot += filtered
                 tot_car += new_career_urls
             except Exception as e:
+                logger.error(e)
                 time.sleep(30)
         logger.warning(
             f"END: {time.time() - start}, TOTAL: {tot}, NEW CAREER URLS: {tot_car}"
